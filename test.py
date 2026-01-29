@@ -16,22 +16,24 @@ st.markdown("""
 # --- CONEXÃO COM GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    # Carrega as credenciais
-    creds_dict = st.secrets["gcp_service_account"]
+    # 1. Pega os segredos brutos (que são somente leitura)
+    raw_creds = st.secrets["gcp_service_account"]
     
-    # CORREÇÃO CRÍTICA
+    # 2. Cria uma CÓPIA editável (transforma em dicionário comum)
+    creds_dict = dict(raw_creds)
+    
+    # 3. corrige a chave na cópia (isso é permitido)
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    
+    #(creds_dict) para autenticar
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     
-    # Tenta abrir a planilha. 
-    sheet = client.open("smartbiblio-db").sheet1 
+    # Abre a planilha
+    sheet = client.open("smartbiblio.db").sheet1 
     return sheet
-
-# Bloco principal de conexão sem o try/except genérico para vermos o erro real
-sheet = conectar_google_sheets()
 
 # --- INTERFACE ---
 st.title("📚 Sistema de Biblioteca (Na Nuvem)")
