@@ -65,10 +65,10 @@ if choice == "Retirar Livro":
             if qtd_pendentes >= 2:
                 st.error(f"❌ {nome} já tem {qtd_pendentes} livros pendentes!")
             else:
-# Define o fuso horário de Brasília/Belém
-fuso_br = pytz.timezone('America/Sao_Paulo')
-# Pega a hora certa nesse fuso
-data_agora = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
+	# Define o fuso horário de Brasília/Belém
+	fuso_br = pytz.timezone('America/Sao_Paulo')
+	# Pega a hora certa nesse fuso
+	data_agora = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
 		# Adiciona nova linha na planilha
 		sheet.append_row([nome, livro, data_agora, "Pendente"])
 		st.success(f"✅ Empréstimo de '{livro}' registrado!")
