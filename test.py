@@ -89,10 +89,18 @@ if choice == "Retirar Livro":
 
 elif choice == "Devolver Livro":
     st.subheader("Registrar Devolução")
+
+    # --- NOVO CÓDIGO: Verifica se houve devolução recente ---
+    if 'msg_sucesso' in st.session_state:
+        st.success(st.session_state['msg_sucesso'])
+        # Limpa a mensagem para ela não ficar lá pra sempre
+        del st.session_state['msg_sucesso']
+    # -------------------------------------------------------
+
     nome_busca = st.text_input("Nome da pessoa:").strip().title()
     
     if nome_busca:
-        # Pega todos os valores (incluindo cabeçalho) para achar o número da linha
+        # Pega todos os valores
         todas_linhas = sheet.get_all_values()
         
         # Filtra visualmente para o usuário
@@ -100,8 +108,7 @@ elif choice == "Devolver Livro":
         
         # Começa do índice 1 (pula o cabeçalho)
         for i, row in enumerate(todas_linhas[1:], start=2):
-            # row[0] é Nome, row[1] é Livro, row[3] é Status
-            # Verifique a ordem das colunas na sua planilha!
+            # Garante que a linha tem colunas suficientes antes de ler
             if len(row) >= 4:
                 nome_planilha = row[0]
                 livro_planilha = row[1]
@@ -113,11 +120,15 @@ elif choice == "Devolver Livro":
                     if st.button(f"Devolver: {livro_planilha}", key=f"btn_{i}"):
                         # Atualiza a célula da coluna 4 (Status) na linha 'i'
                         sheet.update_cell(i, 4, "Devolvido")
-                        st.success("Livro devolvido com sucesso!")
+                        
+                        # --- MODIFICAÇÃO AQUI ---
+                        # Salva a mensagem na memória antes de reiniciar
+                        st.session_state['msg_sucesso'] = f"✅ O livro '{livro_planilha}' foi devolvido com sucesso!"
                         st.rerun()
+                        # ------------------------
         
         if not encontrou_algum:
-            st.info("Nenhum empréstimo pendente encontrado para essa pessoa.")
+            st.info("Nenhum empréstimo pendente encontrado para essa pessoa no momento.")
 
 elif choice == "Histórico Geral":
     st.subheader("Todos os Registros")
