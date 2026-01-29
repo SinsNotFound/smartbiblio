@@ -35,6 +35,8 @@ def conectar_google_sheets():
     sheet = client.open("smartbiblio.db").sheet1 
     return sheet
 
+sheet = conectar_google_sheets()
+
 # --- INTERFACE ---
 st.title("📚 Sistema de Biblioteca (Na Nuvem)")
 
