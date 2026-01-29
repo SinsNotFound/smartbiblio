@@ -3,6 +3,16 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 
+# --- OCULTAR ELEMENTOS PADRÃO DO STREAMLIT ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            header {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
 # --- CONFIGURAÇÃO DO BANCO DE DADOS ---
 conn = sqlite3.connect('biblioteca.db', check_same_thread=False)
 c = conn.cursor()
