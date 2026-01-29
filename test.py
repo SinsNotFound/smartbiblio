@@ -57,21 +57,27 @@ if choice == "Retirar Livro":
             
             # Conta quantos livros pendentes a pessoa tem
             if not df.empty:
-                pendentes = df[(df['Nome'] == nome) & (df['Status'] == 'Pendente')]
-                qtd_pendentes = len(pendentes)
+                # Verifica se as colunas existem antes de filtrar para evitar erro de Index
+                if 'Nome' in df.columns and 'Status' in df.columns:
+                    pendentes = df[(df['Nome'] == nome) & (df['Status'] == 'Pendente')]
+                    qtd_pendentes = len(pendentes)
+                else:
+                    st.error("Erro: As colunas 'Nome' e 'Status' não foram encontradas na planilha. Verifique o cabeçalho no Google Sheets.")
+                    st.stop()
             else:
                 qtd_pendentes = 0
             
             if qtd_pendentes >= 2:
                 st.error(f"❌ {nome} já tem {qtd_pendentes} livros pendentes!")
             else:
-		# Define o fuso horário de Brasília/Belém
-		fuso_br = pytz.timezone('America/Sao_Paulo')
-		# Pega a hora certa nesse fuso
-		data_agora = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
-		# Adiciona nova linha na planilha
-		sheet.append_row([nome, livro, data_agora, "Pendente"])
-		st.success(f"✅ Empréstimo de '{livro}' registrado!")
+                # Define o fuso horário de Brasília/Belém
+                fuso_br = pytz.timezone('America/Sao_Paulo')
+                # Pega a hora certa nesse fuso
+                data_agora = datetime.now(fuso_br).strftime("%d/%m/%Y %H:%M:%S")
+                
+                # Adiciona nova linha na planilha
+                sheet.append_row([nome, livro, data_agora, "Pendente"])
+                st.success(f"✅ Empréstimo de '{livro}' registrado!")
         else:
             st.warning("Preencha todos os campos.")
 
