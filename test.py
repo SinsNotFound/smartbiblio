@@ -1,85 +1,106 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# --- OCULTAR ELEMENTOS PADRÃO DO STREAMLIT ---
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
-            footer {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# --- OCULTAR ELEMENTOS PADRÃO ---
+st.markdown("""
+    <style>
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {display: none;}
+    </style>
+""", unsafe_allow_html=True)
 
-# --- CONFIGURAÇÃO DO BANCO DE DADOS ---
-conn = sqlite3.connect('biblioteca.db', check_same_thread=False)
-c = conn.cursor()
+# --- CONEXÃO COM GOOGLE SHEETS ---
+@st.cache_resource
+def conectar_google_sheets():
+    # Carrega as credenciais
+    creds_dict = st.secrets["gcp_service_account"]
+    
+    # CORREÇÃO CRÍTICA
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+    
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+    
+    # Tenta abrir a planilha. 
+    sheet = client.open("smartbiblio-db").sheet1 
+    return sheet
 
-def criar_tabelas():
-    # O conteúdo da função precisa ter um recuo (4 espaços)
-    c.execute('''CREATE TABLE IF NOT EXISTS emprestimos 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  nome_pessoa TEXT, 
-                  livro TEXT, 
-                  data_retirada TEXT, 
-                  status TEXT)''')
-    conn.commit()
-
-# Chama a função para garantir que a tabela existe
-criar_tabelas()
+# Bloco principal de conexão sem o try/except genérico para vermos o erro real
+sheet = conectar_google_sheets()
 
 # --- INTERFACE ---
-st.title("📚 Sistema de Biblioteca Inteligente")
+st.title("📚 Sistema de Biblioteca (Na Nuvem)")
 
 menu = ["Retirar Livro", "Devolver Livro", "Histórico Geral"]
 choice = st.sidebar.selectbox("Menu", menu)
 
 if choice == "Retirar Livro":
     st.subheader("Novo Empréstimo")
-    
-    # Inputs devem estar dentro do bloco 'if choice...'
     nome = st.text_input("Nome da Pessoa:").strip().title()
     livro = st.text_input("Nome do Livro:")
     
     if st.button("Confirmar Retirada"):
         if nome and livro:
-            # Verifica quantos livros a pessoa tem no momento
-            c.execute("SELECT COUNT(*) FROM emprestimos WHERE nome_pessoa = ? AND status = 'Pendente'", (nome,))
-            livros_atuais = c.fetchone()[0]
+            # Baixa todos os dados para verificar
+            dados = sheet.get_all_records()
+            df = pd.DataFrame(dados)
             
-            if livros_atuais >= 2:
-                st.error(f"❌ {nome} já possui {livros_atuais} livros. Devolva um antes de retirar outro!")
+            # Conta quantos livros pendentes a pessoa tem
+            if not df.empty:
+                pendentes = df[(df['Nome'] == nome) & (df['Status'] == 'Pendente')]
+                qtd_pendentes = len(pendentes)
+            else:
+                qtd_pendentes = 0
+            
+            if qtd_pendentes >= 2:
+                st.error(f"❌ {nome} já tem {qtd_pendentes} livros pendentes!")
             else:
                 data_agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                c.execute("INSERT INTO emprestimos (nome_pessoa, livro, data_retirada, status) VALUES (?, ?, ?, ?)",
-                          (nome, livro, data_agora, 'Pendente'))
-                conn.commit()
-                st.success(f"✅ Empréstimo de '{livro}' registrado para {nome} às {data_agora}!")
+                # Adiciona nova linha na planilha
+                sheet.append_row([nome, livro, data_agora, "Pendente"])
+                st.success(f"✅ Empréstimo de '{livro}' registrado!")
         else:
-            st.warning("Por favor, preencha todos os campos.")
+            st.warning("Preencha todos os campos.")
 
 elif choice == "Devolver Livro":
     st.subheader("Registrar Devolução")
-    nome_busca = st.text_input("Digite o nome da pessoa para devolver:").strip().title()
+    nome_busca = st.text_input("Nome da pessoa:").strip().title()
     
     if nome_busca:
-        c.execute("SELECT id, livro, data_retirada FROM emprestimos WHERE nome_pessoa = ? AND status = 'Pendente'", (nome_busca,))
-        livros_pendentes = c.fetchall()
+        # Pega todos os valores (incluindo cabeçalho) para achar o número da linha
+        todas_linhas = sheet.get_all_values()
         
-        if livros_pendentes:
-            for item in livros_pendentes:
-                # O botão deve ser único para cada livro (usando key=item[0])
-                if st.button(f"Devolver: {item[1]} (Retirado em: {item[2]})", key=item[0]):
-                    c.execute("UPDATE emprestimos SET status = 'Devolvido' WHERE id = ?", (item[0],))
-                    conn.commit()
-                    st.rerun()
-        else:
-            st.info("Esta pessoa não possui livros pendentes.")
+        # Filtra visualmente para o usuário
+        encontrou_algum = False
+        
+        # Começa do índice 1 (pula o cabeçalho)
+        for i, row in enumerate(todas_linhas[1:], start=2):
+            # row[0] é Nome, row[1] é Livro, row[3] é Status
+            # Verifique a ordem das colunas na sua planilha!
+            if len(row) >= 4:
+                nome_planilha = row[0]
+                livro_planilha = row[1]
+                status_planilha = row[3]
+                
+                if nome_planilha == nome_busca and status_planilha == "Pendente":
+                    encontrou_algum = True
+                    # Botão único usando o índice da linha como chave
+                    if st.button(f"Devolver: {livro_planilha}", key=f"btn_{i}"):
+                        # Atualiza a célula da coluna 4 (Status) na linha 'i'
+                        sheet.update_cell(i, 4, "Devolvido")
+                        st.success("Livro devolvido com sucesso!")
+                        st.rerun()
+        
+        if not encontrou_algum:
+            st.info("Nenhum empréstimo pendente encontrado para essa pessoa.")
 
 elif choice == "Histórico Geral":
     st.subheader("Todos os Registros")
-    # A leitura do DataFrame deve estar dentro deste bloco
-    df = pd.read_sql_query("SELECT nome_pessoa as Nome, livro as Livro, data_retirada as 'Data/Hora', status as Status FROM emprestimos", conn)
+    dados = sheet.get_all_records()
+    df = pd.DataFrame(dados)
     st.dataframe(df, use_container_width=True)
