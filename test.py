@@ -16,25 +16,25 @@ st.markdown("""
 # --- CONEXÃO COM GOOGLE SHEETS ---
 @st.cache_resource
 def conectar_google_sheets():
-    # 1. Pega os segredos brutos (que são somente leitura)
+    # 1. Pega os segredos brutos
     raw_creds = st.secrets["gcp_service_account"]
     
-    # 2. Cria uma CÓPIA editável (transforma em dicionário comum)
+    # 2. Cria uma CÓPIA editável
     creds_dict = dict(raw_creds)
     
-    # 3. corrige a chave na cópia (isso é permitido)
+    # 3. Corrige a chave
     creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    
-    #(creds_dict) para autenticar
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
     
-    # Abre a planilha
+    # Abre a planilha (Confira o nome!)
     sheet = client.open("smartbiblio.db").sheet1 
     return sheet
 
+# --- A LINHA QUE FALTAVA ---
+# Ela chama a função acima e cria a variável 'sheet' que o resto do código usa
 sheet = conectar_google_sheets()
 
 # --- INTERFACE ---
