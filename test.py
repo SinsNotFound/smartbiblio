@@ -8,9 +8,15 @@ from oauth2client.service_account import ServiceAccountCredentials
 # --- OCULTAR ELEMENTOS PADRÃO ---
 st.markdown("""
     <style>
+        /* Esconde o menu de 3 pontinhos e o Deploy */
         #MainMenu {visibility: hidden;}
-        header {visibility: hidden;}
-        footer {display: none;}
+        .stDeployButton {display:none;}
+        
+        /* Esconde o rodapé "Made with Streamlit" */
+        footer {visibility: hidden;}
+        
+        /* A linha abaixo foi removida para você poder ver a setinha (>) novamente */
+        /* header {visibility: hidden;} */
     </style>
 """, unsafe_allow_html=True)
 
